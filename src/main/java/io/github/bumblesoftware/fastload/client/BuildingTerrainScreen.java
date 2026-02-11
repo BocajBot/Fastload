@@ -2,9 +2,8 @@ package io.github.bumblesoftware.fastload.client;
 
 import io.github.bumblesoftware.fastload.abstraction.AbstractClientCalls;
 import io.github.bumblesoftware.fastload.init.Fastload;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.util.NarratorManager;
-import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.text.Text;
 
 import static io.github.bumblesoftware.fastload.init.FastloadClient.MINECRAFT_ABSTRACTION_HANDLER;
@@ -34,7 +33,7 @@ public class BuildingTerrainScreen extends Screen {
      * Texts to draw
      */
     public BuildingTerrainScreen(final int loadingAreaGoal) {
-        super(NarratorManager.EMPTY);
+        super(Text.empty());
         this.loadingAreaGoal = loadingAreaGoal;
         screenName = ABSTRACTED_CLIENT.newTranslatableText("menu.generatingTerrain");
         screenTemplate = ABSTRACTED_CLIENT.newTranslatableText("fastload.screen.buildingTerrain.template");
@@ -47,13 +46,13 @@ public class BuildingTerrainScreen extends Screen {
      * Renders screen texts
      */
     @Override
-    public void render(MatrixStack matrices, int mouseX, int mouseY, float delta) {
+    public void render(DrawContext drawContext, int mouseX, int mouseY, float delta) {
         final String loadedChunksString =
                 getLoadedChunkCount() + "/"  + loadingAreaGoal;
         final String builtChunksString =
                 getBuiltChunkCount() + "/"  + loadingAreaGoal;
 
-        ABSTRACTED_CLIENT.renderScreenBackgroundTexture(this, 0, matrices);
+        ABSTRACTED_CLIENT.renderScreenBackgroundTexture(this, 0, drawContext);
 
         if (preparedProgressStorage < getLoadedChunkCount())
             Fastload.LOGGER.info("World Chunk Loading: " + loadedChunksString);
@@ -65,7 +64,7 @@ public class BuildingTerrainScreen extends Screen {
 
         if (getLoadedChunkCount() == 0 && getBuiltChunkCount() == 0) {
             ABSTRACTED_CLIENT.drawCenteredText(
-                    matrices,
+                    drawContext,
                     this.textRenderer,
                     startingSession,
                     this.width / 2,
@@ -76,7 +75,7 @@ public class BuildingTerrainScreen extends Screen {
         }
 
         ABSTRACTED_CLIENT.drawCenteredText(
-                matrices,
+                drawContext,
                 this.textRenderer,
                 screenName,
                 this.width / 2,
@@ -85,7 +84,7 @@ public class BuildingTerrainScreen extends Screen {
         );
 
         ABSTRACTED_CLIENT.drawCenteredText(
-                matrices,
+                drawContext,
                 this.textRenderer,
                 screenTemplate,
                 this.width / 2,
@@ -94,7 +93,7 @@ public class BuildingTerrainScreen extends Screen {
         );
 
         ABSTRACTED_CLIENT.drawCenteredText(
-                matrices,
+                drawContext,
                 this.textRenderer,
                  preparingChunks.getString() + ": " + loadedChunksString,
                 width / 2,
@@ -102,14 +101,14 @@ public class BuildingTerrainScreen extends Screen {
                 WHITE);
 
         ABSTRACTED_CLIENT.drawCenteredText(
-                matrices,
+                drawContext,
                 this.textRenderer,
                 buildingChunks.getString() + ": " + builtChunksString,
                 width / 2,
                 height / 2 - HEIGHT_UP_FROM_CENTRE + 60,
                 WHITE);
 
-        super.render(matrices, mouseX, mouseY, delta);
+        super.render(drawContext, mouseX, mouseY, delta);
     }
 
     @Override

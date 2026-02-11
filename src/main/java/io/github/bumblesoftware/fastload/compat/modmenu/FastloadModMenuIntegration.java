@@ -9,9 +9,7 @@ import static io.github.bumblesoftware.fastload.init.FastloadClient.MINECRAFT_AB
 
 public class FastloadModMenuIntegration implements ModMenuApi {
     public static final AbstractClientCalls ABSTRACTED_CLIENT = MINECRAFT_ABSTRACTION_HANDLER.directory.getAbstractedEntries();
-    /**
-     *  Registers our config screen to modmenu
-     */
+
     @Override
     public ConfigScreenFactory<Screen> getModConfigScreenFactory() {
         return ABSTRACTED_CLIENT::newFastloadConfigScreen;

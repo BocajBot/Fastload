@@ -17,7 +17,7 @@ import static io.github.bumblesoftware.fastload.common.FLCommonEvents.Events.EMP
  */
 @Mixin(ClientPlayerEntity.class)
 public class ClientPlayerEntityMixin {
-    @Inject(method = "init", at = @At("HEAD"))
+    @Inject(method = "init", at = @At("HEAD"), require = 0)
     private void onClientPlayerEntityMixinInitEvent(CallbackInfo ci) {
         if (EMPTY_EVENT.isNotEmpty())
             EMPTY_EVENT.execute(List.of(CLIENT_PLAYER_INIT), new EmptyContext());

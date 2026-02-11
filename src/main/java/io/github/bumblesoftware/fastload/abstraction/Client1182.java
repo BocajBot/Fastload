@@ -1,37 +1,25 @@
 package io.github.bumblesoftware.fastload.abstraction;
 
+import com.mojang.serialization.Codec;
 import io.github.bumblesoftware.fastload.api.abstraction.core.config.RetrieveValueFunction;
 import io.github.bumblesoftware.fastload.api.abstraction.core.config.StoreValueFunction;
 import io.github.bumblesoftware.fastload.client.BuildingTerrainScreen;
 import io.github.bumblesoftware.fastload.compat.modmenu.FLConfigScreenButtons;
 import io.github.bumblesoftware.fastload.config.DefaultConfig;
 import io.github.bumblesoftware.fastload.config.FLConfig;
-import io.github.bumblesoftware.fastload.mixin.mixins.mc1182.client.ClientAccess;
-import io.github.bumblesoftware.fastload.mixin.mixins.mc1182.client.OptionAccess;
-import io.github.bumblesoftware.fastload.mixin.mixins.mc1182.client.ScreenAccess;
 import io.github.bumblesoftware.fastload.util.Action;
 import io.github.bumblesoftware.fastload.util.Bound;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.DrawableHelper;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.screen.DownloadingTerrainScreen;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.GameMenuScreen;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ScreenTexts;
-import net.minecraft.client.gui.screen.option.SimpleOptionsScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.option.CyclingOption;
-import net.minecraft.client.option.DoubleOption;
+import net.minecraft.client.gui.screen.option.GameOptionsScreen;
+import net.minecraft.client.gui.screen.world.LevelLoadingScreen;
 import net.minecraft.client.option.GameOptions;
-import net.minecraft.client.option.Option;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.option.SimpleOption;
 import net.minecraft.client.world.ClientWorld;
-import net.minecraft.text.LiteralText;
-import net.minecraft.text.StringVisitable;
 import net.minecraft.text.Text;
-import net.minecraft.text.TranslatableText;
 
 import java.util.function.Function;
 
@@ -39,7 +27,7 @@ import java.util.function.Function;
 public class Client1182 implements AbstractClientCalls {
     @Override
     public String[] getSupportedVersions() {
-        return new String[] {"1.18.2"};
+        return new String[]{"1.21.11"};
     }
 
     @Override
@@ -60,36 +48,18 @@ public class Client1182 implements AbstractClientCalls {
             Function<Object[], T[]> options,
             Action config
     ) {
-        final var main = this;
-        return new SimpleOptionsScreen(
-                parent,
-                gameOptions,
-                title,
-                (Option[]) options.apply(new Option[]{})
-        ) {
+        return new GameOptionsScreen(parent, gameOptions, title) {
             @Override
-            protected void initFooter() {
-                main.initFooter(this, parent, config);
+            protected void addOptions() {
+                this.body.addAll((SimpleOption<?>[]) options.apply(new SimpleOption[]{}));
+            }
+
+            @Override
+            public void removed() {
+                config.commit();
+                super.removed();
             }
         };
-    }
-
-    protected Text getDoneText() {
-        return ScreenTexts.DONE;
-    }
-
-    protected void initFooter(final Screen current, final Screen parent, Action config) {
-        addDrawableChild(current,
-                getNewButton(
-                        current.width / 2 - 100,
-                        current.height - 27,
-                        200, 20,
-                        getDoneText(),
-                        (button) -> {
-                            config.commit();
-                            getClientInstance().setScreen(parent);
-                        })
-        );
     }
 
     @Override
@@ -97,7 +67,7 @@ public class Client1182 implements AbstractClientCalls {
         return newConfigScreen(
                 parent,
                 getClientInstance().options,
-                newTranslatableText("fastload.screen.config"),
+                Text.translatable("fastload.screen.config"),
                 objects -> newFLConfigScreenButtons().getAllOptions(objects),
                 FLConfig::writeToDisk
         );
@@ -115,57 +85,36 @@ public class Client1182 implements AbstractClientCalls {
 
     @Override
     public Text newTranslatableText(final String content) {
-        return new TranslatableText(content);
+        return Text.translatable(content);
     }
 
     @Override
     public Text newLiteralText(final String content) {
-        return new LiteralText(content);
-    }
-
-    @Override
-    public <T1 extends Element & Drawable> T1 addDrawableChild(
-            final Screen screen,
-            final T1 drawableElement
-    ) {
-        return ((ScreenAccess)screen).addDrawableChildProxy(drawableElement);
+        return Text.literal(content);
     }
 
     @Override
     public <T> FLConfigScreenButtons<T> newFLConfigScreenButtons() {
-        return (FLConfigScreenButtons<T>) new FLConfigScreenButtons<Option>();
-    }
-
-
-    @Override
-    public ButtonWidget getNewButton(
-            final int x,
-            final int y,
-            final int width,
-            final int height,
-            final Text message,
-            final ButtonWidget.PressAction onPress
-    ) {
-        return new ButtonWidget(x, y, width, height, message, onPress);
+        return (FLConfigScreenButtons<T>) new FLConfigScreenButtons<SimpleOption<?>>();
     }
 
     @Override
-    public <T> T newCyclingButton(
+    public SimpleOption<Boolean> newCyclingButton(
             final String namespace,
             final String identifier,
             final RetrieveValueFunction retrieveValueFunction,
             final StoreValueFunction storeValueFunction
     ) {
-        return (T) CyclingOption.create(
+        return SimpleOption.ofBoolean(
                 namespace + identifier,
-                new TranslatableText(namespace + identifier + ".tooltip"),
-                gameOptions -> Boolean.parseBoolean(retrieveValueFunction.getValue(identifier)),
-                (gameOptions, option, value) -> storeValueFunction.setValue(identifier, value.toString())
+                SimpleOption.constantTooltip(newTranslatableText(namespace + identifier + ".tooltip")),
+                Boolean.parseBoolean(retrieveValueFunction.getValue(identifier)),
+                aBoolean -> storeValueFunction.setValue(identifier, Boolean.toString(aBoolean))
         );
     }
 
     @Override
-    public <T> T newSlider(
+    public SimpleOption<Integer> newSlider(
             final String namespace,
             final String identifier,
             final RetrieveValueFunction retrieveValueFunction,
@@ -173,73 +122,64 @@ public class Client1182 implements AbstractClientCalls {
             final Bound minMaxValues,
             final int width
     ) {
-        return (T) new DoubleOption(
+        int max = minMaxValues.max();
+        int min = minMaxValues.min();
+        return new SimpleOption<>(
                 namespace + identifier,
-                minMaxValues.min(),
-                minMaxValues.max(),
-                1.0F,
-                gameOptions -> Double.parseDouble(retrieveValueFunction.getValue(identifier)),
-                (gameOptions, value) ->
-                        storeValueFunction.setValue(identifier, Integer.toString(value.intValue())),
-                (gameOptions, option) -> {
-                    double d = option.get(gameOptions);
-                    if (d == minMaxValues.min()) {
-                        return ((OptionAccess)option).getGenericLabelProxy(new TranslatableText(namespace + identifier +
-                                ".min"));
+                SimpleOption.constantTooltip(newTranslatableText(namespace + identifier + ".tooltip")),
+                (optionText, value) -> {
+                    if (value.equals(min)) {
+                        return GameOptions.getGenericValueText(optionText, Text.translatable(namespace + identifier + ".min"));
+                    } else if (value.equals(max)) {
+                        return GameOptions.getGenericValueText(optionText, Text.translatable(namespace + identifier + ".max"));
                     } else {
-                        return d == minMaxValues.max() ?
-                                ((OptionAccess)option).getGenericLabelProxy(new TranslatableText(namespace + identifier +
-                                        ".max")) :
-                                ((OptionAccess)option).getGenericLabelProxy(new LiteralText(Integer.toString((int)d)));
+                        return GameOptions.getGenericValueText(optionText, value);
                     }
                 },
-                minecraftClient -> minecraftClient.textRenderer.wrapLines(
-                        StringVisitable.plain(new TranslatableText(namespace + identifier + ".tooltip").getString()),
-                        200
-                ));
+                new SimpleOption.ValidatingIntSliderCallbacks(min, max),
+                Codec.DOUBLE.xmap(value -> max, value -> (double) value - max),
+                Integer.parseInt(retrieveValueFunction.getValue(identifier)),
+                value -> storeValueFunction.setValue(identifier, Integer.toString(value))
+        );
     }
-
-    @Override
-    public void reset(Screen screen) {
-        ((ClientAccess)getClientInstance()).resetProxy(screen);
-    }
-
 
     @Override
     public void setScreen(final Screen screen) {
         getClientInstance().setScreen(screen);
     }
+
     @Override
     public void renderScreenBackgroundTexture(
             final Screen screen,
             final int offset,
-            final MatrixStack matrices
+            final DrawContext drawContext
     ) {
-        screen.renderBackgroundTexture(0);
+        // Avoid Screen#renderBackground blur path; some modpacks already blur once per frame.
+        screen.renderInGameBackground(drawContext);
     }
 
     @Override
     public void drawCenteredText(
-            final MatrixStack matrices,
+            final DrawContext drawContext,
             final TextRenderer textRenderer,
             final Text text,
             final int centerX,
             final int y,
             final int color
     ) {
-        DrawableHelper.drawCenteredText(matrices, textRenderer, text, centerX, y, color);
+        drawContext.drawCenteredTextWithShadow(textRenderer, text, centerX, y, color);
     }
 
     @Override
     public void drawCenteredText(
-            final MatrixStack matrices,
+            final DrawContext drawContext,
             final TextRenderer textRenderer,
             final String text,
             final int centerX,
             final int y,
             final int color
     ) {
-        DrawableHelper.drawCenteredText(matrices, textRenderer, text, centerX, y, color);
+        drawContext.drawCenteredTextWithShadow(textRenderer, text, centerX, y, color);
     }
 
     @Override
@@ -256,7 +196,9 @@ public class Client1182 implements AbstractClientCalls {
     public int getViewDistance() {
         if (getClientInstance().options == null) {
             return DefaultConfig.LOCAL_CHUNK_RADIUS_BOUND.max();
-        } else return getClientInstance().options.getViewDistance();
+        } else {
+            return getClientInstance().options.getViewDistance().getValue();
+        }
     }
 
     @Override
@@ -286,6 +228,6 @@ public class Client1182 implements AbstractClientCalls {
 
     @Override
     public boolean isDownloadingTerrainScreen(final Screen screen) {
-        return screen instanceof DownloadingTerrainScreen;
+        return screen instanceof LevelLoadingScreen;
     }
 }

@@ -2,12 +2,14 @@ package io.github.bumblesoftware.fastload.mixin.mixins.mc1182.client;
 
 import io.github.bumblesoftware.fastload.client.FLClientEvents.Contexts.PlayerJoinEventContext;
 import io.github.bumblesoftware.fastload.client.FLClientEvents.Contexts.SetScreenEventContext;
-import io.github.bumblesoftware.fastload.util.obj_holders.MutableObjectHolder;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.world.LevelLoadingScreen;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
+import net.minecraft.client.world.ClientChunkLoadProgress;
 import net.minecraft.network.packet.s2c.play.GameJoinS2CPacket;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -18,38 +20,50 @@ import java.util.List;
 import static io.github.bumblesoftware.fastload.client.FLClientEvents.Events.PLAYER_JOIN_EVENT;
 import static io.github.bumblesoftware.fastload.client.FLClientEvents.Events.SET_SCREEN_EVENT;
 import static io.github.bumblesoftware.fastload.client.FLClientEvents.Locations.*;
-import static io.github.bumblesoftware.fastload.common.FLCommonEvents.Events.RUNNABLE_EVENT;
 
 /**
  * Sets setPlayerJoined to true when the player joins the game
  */
 @Mixin(ClientPlayNetworkHandler.class)
 public class ClientPlayNetworkHandlerMixin {
-    @Inject(method = "onGameJoin", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/world/ClientWorld;addPlayer(ILnet/minecraft/client/network/AbstractClientPlayerEntity;)V"))
+    @Unique
+    private boolean fastload$inOnGameJoin;
+
+    @Inject(method = "onGameJoin", at = @At("HEAD"), require = 0)
+    private void setGameJoinStateOnStart(GameJoinS2CPacket packet, CallbackInfo ci) {
+        fastload$inOnGameJoin = true;
+    }
+
+    @Inject(method = "onGameJoin", at = @At("TAIL"), require = 0)
     private void onGamedJoinEvent(GameJoinS2CPacket packet, CallbackInfo ci) {
+        fastload$inOnGameJoin = false;
         if (PLAYER_JOIN_EVENT.isNotEmpty())
             PLAYER_JOIN_EVENT.execute(new PlayerJoinEventContext(packet));
     }
 
-    @Redirect(method = "onGameJoin", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/MinecraftClient;setScreen(Lnet/minecraft/client/gui/screen/Screen;)V"))
+    @Redirect(method = "startWorldLoading", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/MinecraftClient;setScreenAndRender(Lnet/minecraft/client/gui/screen/Screen;)V"), require = 0)
     private void modifyDownloadingTerrainScreen(MinecraftClient client, Screen screen) {
-        if (SET_SCREEN_EVENT.isNotEmpty(DTS_GAME_JOIN_REDIRECT))
+        if (fastload$inOnGameJoin && SET_SCREEN_EVENT.isNotEmpty(DTS_GAME_JOIN_REDIRECT))
             SET_SCREEN_EVENT.execute(List.of(DTS_GAME_JOIN_REDIRECT), new SetScreenEventContext(screen, null));
-        else client.setScreen(screen);
+        else client.setScreenAndRender(screen);
     }
 
-    @Redirect(method = "onPlayerRespawn", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/MinecraftClient;setScreen(Lnet/minecraft/client/gui/screen/Screen;)V"))
+    @Redirect(method = "startWorldLoading", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screen/world/LevelLoadingScreen;init(Lnet/minecraft/client/world/ClientChunkLoadProgress;Lnet/minecraft/client/gui/screen/world/LevelLoadingScreen$WorldEntryReason;)V"), require = 0)
+    private void modifyExistingDownloadingTerrainScreen(
+            LevelLoadingScreen levelLoadingScreen,
+            ClientChunkLoadProgress chunkLoadProgress,
+            LevelLoadingScreen.WorldEntryReason worldEntryReason
+    ) {
+        if (fastload$inOnGameJoin && SET_SCREEN_EVENT.isNotEmpty(DTS_GAME_JOIN_REDIRECT))
+            SET_SCREEN_EVENT.execute(List.of(DTS_GAME_JOIN_REDIRECT), new SetScreenEventContext(levelLoadingScreen, null));
+        else levelLoadingScreen.init(chunkLoadProgress, worldEntryReason);
+    }
+
+    @Redirect(method = "onPlayerRespawn", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/MinecraftClient;setScreen(Lnet/minecraft/client/gui/screen/Screen;)V"), require = 0)
     private void instantLoad(MinecraftClient client, Screen screen) {
         if (SET_SCREEN_EVENT.isNotEmpty(RESPAWN_DTS_REDIRECT))
             SET_SCREEN_EVENT.execute(List.of(RESPAWN_DTS_REDIRECT), new SetScreenEventContext(screen, null));
         else client.setScreen(screen);
 
-    }
-
-    @Redirect(method = "onResourcePackSend", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/MinecraftClient;execute(Ljava/lang/Runnable;)V"))
-    private void redirectResourcePackScreen(MinecraftClient client, Runnable runnable) {
-        if (RUNNABLE_EVENT.isNotEmpty(RP_SEND_RUNNABLE))
-            RUNNABLE_EVENT.execute(List.of(RP_SEND_RUNNABLE), new MutableObjectHolder<>(runnable));
-        else client.execute(runnable);
     }
 }

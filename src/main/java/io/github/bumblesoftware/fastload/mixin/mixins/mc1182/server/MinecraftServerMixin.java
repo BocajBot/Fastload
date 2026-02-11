@@ -1,10 +1,8 @@
 package io.github.bumblesoftware.fastload.mixin.mixins.mc1182.server;
 
-import io.github.bumblesoftware.fastload.common.FLCommonEvents;
 import io.github.bumblesoftware.fastload.util.obj_holders.MutableObjectHolder;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.WorldGenerationProgressListener;
-import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.chunk.ChunkLoadingCounter;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.*;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -25,25 +23,17 @@ import static io.github.bumblesoftware.fastload.common.FLCommonEvents.Locations.
 @Mixin(MinecraftServer.class)
 public abstract class MinecraftServerMixin {
 
-    @Inject(method = "tick", at = @At("HEAD"))
+    @Inject(method = "tick", at = @At("HEAD"), require = 0)
     private void onTick(BooleanSupplier shouldKeepTicking, CallbackInfo ci) {
         if (BOOLEAN_EVENT.isNotEmpty(PREPARE_START_REGION))
             BOOLEAN_EVENT.execute(List.of(SERVER_TICK), new MutableObjectHolder<>(shouldKeepTicking.getAsBoolean()));
     }
 
-    @ModifyConstant(method = "prepareStartRegion", constant = @Constant(intValue = 441))
-    private int modify_prepareStartRegion_chunkCount(int value) {
-        final var returnValue = new MutableObjectHolder<>(441);
+    @Redirect(method = "prepareStartRegion", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/chunk/ChunkLoadingCounter;getNonFullChunks()I"), require = 0)
+    private int modifyPrepareStartRegionNonFullChunks(ChunkLoadingCounter chunkLoadingCounter) {
+        final var returnValue = new MutableObjectHolder<>(chunkLoadingCounter.getNonFullChunks());
         if (INTEGER_EVENT.isNotEmpty(PREPARE_START_REGION))
             INTEGER_EVENT.execute(List.of(PREPARE_START_REGION), true, returnValue);
         return returnValue.getHeldObj();
-    }
-
-    @Redirect(method = "prepareStartRegion", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/WorldGenerationProgressListener;start(Lnet/minecraft/util/math/ChunkPos;)V"))
-    private void handleProgressListener(WorldGenerationProgressListener worldGenerationProgressListener, ChunkPos chunkPos) {
-        if (PROGRESS_LISTENER_EVENT.isNotEmpty(PREPARE_START_REGION))
-            PROGRESS_LISTENER_EVENT.execute(
-                    new FLCommonEvents.Contexts.ProgressListenerContext(worldGenerationProgressListener, chunkPos)
-            );
     }
 }

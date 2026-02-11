@@ -4,7 +4,6 @@ import io.github.bumblesoftware.fastload.abstraction.AbstractClientCalls;
 import io.github.bumblesoftware.fastload.api.event.def.CapableEvent;
 import io.github.bumblesoftware.fastload.config.FLMath;
 import io.github.bumblesoftware.fastload.util.TickTimer;
-import net.minecraft.client.gui.screen.DownloadingTerrainScreen;
 import net.minecraft.client.gui.screen.Screen;
 
 import java.util.List;
@@ -82,7 +81,10 @@ public final class FLClientHandler {
     private static void registerEvents() {
         EMPTY_EVENT.registerStatic(1, List.of(CLIENT_PLAYER_INIT),
                 (eventContext, eventStatus, event, eventArgs) -> {
-                    ifDebugEnabled(() -> LOGGER.info("shouldLoad = true"));
+                    // Fallback for versions where the game-join hook can shift across updates.
+                    playerJoined = true;
+                    ifDebugEnabled(() -> LOGGER.info("playerJoined = true (player init fallback)"));
+                    ifDebugEnabled(() -> LOGGER.info("playerReady = true"));
                     playerReady = true;
                 }
         );
@@ -102,7 +104,11 @@ public final class FLClientHandler {
                             !ABSTRACTED_CLIENT.isWindowFocused()
                     ) {
                         ifDebugEnabled(() -> log(Integer.toString(CLIENT_TIMER.getTime())));
-                        eventContext.ci().cancel();
+                        if (eventContext.ci() != null) {
+                            eventContext.ci().cancel();
+                        }
+                        // Keep deferring vanilla pause-menu open while the window is unfocused.
+                        CLIENT_TIMER.setTime(20);
                     }
                 }
         );
@@ -120,8 +126,14 @@ public final class FLClientHandler {
                 (eventContext, eventStatus, event, eventArgs) -> {
                     if (ABSTRACTED_CLIENT.isDownloadingTerrainScreen(eventContext.screen())) {
                         ifDebugEnabled(() -> log("setScreen(new DownloadingTerrainScreen)"));
-                        if (playerReady && playerJoined && isInstantLoadEnabled()) {
-                            eventContext.ci().cancel();
+                        final boolean preRenderEnabled = ABSTRACTED_CLIENT.isSingleplayer()
+                                ? isLocalRenderEnabled()
+                                : isServerRenderEnabled();
+                        // Only suppress loading screens once a client world exists; this avoids startup-screen flicker.
+                        if (isInstantLoadEnabled() && !preRenderEnabled && ABSTRACTED_CLIENT.getClientWorld() != null) {
+                            if (eventContext.ci() != null) {
+                                eventContext.ci().cancel();
+                            }
                             ABSTRACTED_CLIENT.setScreen(null);
                             playerReady = false;
                             playerJoined = false;
@@ -145,15 +157,25 @@ public final class FLClientHandler {
                             LOGGER.info("LevelLoadingScreen -> BuildingTerrainScreen");
                             LOGGER.info("Goal (Loaded Chunks): " + getLocalRenderChunkArea());
                         });
-                    } else ABSTRACTED_CLIENT.setScreen(new DownloadingTerrainScreen());
+                    } else if (isInstantLoadEnabled()) {
+                        ifDebugEnabled(() -> LOGGER.info("LevelLoadingScreen suppressed for instant singleplayer load"));
+                    } else {
+                        ABSTRACTED_CLIENT.setScreen(eventContext.screen());
+                    }
                 }
         );
 
         SET_SCREEN_EVENT.registerStatic(1, List.of(DTS_GAME_JOIN_REDIRECT),
                 (eventContext, eventStatus, event, eventArgs) -> {
                     if (ABSTRACTED_CLIENT.isSingleplayer()) {
-                        if (!isLocalRenderEnabled())
-                            ABSTRACTED_CLIENT.setScreen(eventContext.screen());
+                        if (!isLocalRenderEnabled()) {
+                            if (isInstantLoadEnabled()) {
+                                ABSTRACTED_CLIENT.setScreen(null);
+                                CLIENT_TIMER.setTime(20);
+                            } else {
+                                ABSTRACTED_CLIENT.setScreen(eventContext.screen());
+                            }
+                        }
                     } else {
                         if (isServerRenderEnabled())
                             ABSTRACTED_CLIENT.setScreen(ABSTRACTED_CLIENT.newBuildingTerrainScreen(getServerRenderChunkArea()));
@@ -179,11 +201,11 @@ public final class FLClientHandler {
                 (eventContext, eventStatus, event, eventArgs) -> {
                     if (ABSTRACTED_CLIENT.isSingleplayer()) {
                         if (isLocalRenderEnabled()) {
-                            ABSTRACTED_CLIENT.reset(ABSTRACTED_CLIENT.getCurrentScreen());
+                            ABSTRACTED_CLIENT.setScreen(ABSTRACTED_CLIENT.getCurrentScreen());
                         }
                     } else if (isServerRenderEnabled()) {
-                        ABSTRACTED_CLIENT.reset(ABSTRACTED_CLIENT.getCurrentScreen());
-                    } else ABSTRACTED_CLIENT.reset(eventContext.screen());
+                        ABSTRACTED_CLIENT.setScreen(ABSTRACTED_CLIENT.getCurrentScreen());
+                    } else ABSTRACTED_CLIENT.setScreen(eventContext.screen());
                 }
         );
 
@@ -261,7 +283,9 @@ public final class FLClientHandler {
                             oldChunkLoadedCountStorage = chunkLoadedCount;
                             oldChunkBuildCountStorage = chunkBuildCount;
 
-                            if (chunkLoadedCount >= loadingAreaGoal && chunkBuildCount >= loadingAreaGoal) {
+                            // 1.21.x worldRenderer completion counts can lag behind or plateau; loaded chunks are the
+                            // authoritative readiness signal for hiding the blocking screen.
+                            if (chunkLoadedCount >= loadingAreaGoal) {
                                 stopBuilding(chunkLoadedCount, chunkBuildCount);
                                 log("Successfully pre-loaded the world!");
                             }

@@ -13,7 +13,7 @@ import static io.github.bumblesoftware.fastload.common.FLCommonEvents.Events.INT
 
 @Mixin(GameRenderer.class)
 public class GameRendererMixin {
-    @ModifyConstant(method = "updateWorldIcon(Ljava/nio/file/Path;)V", constant = @Constant(intValue = 10))
+    @ModifyConstant(method = "updateWorldIcon(Ljava/nio/file/Path;)V", constant = @Constant(intValue = 10), require = 0)
     private static int delayWorldIcon(int constant) {
         final var returnValue = new MutableObjectHolder<>(constant);
         if (INTEGER_EVENT.isNotEmpty(WORLD_ICON))

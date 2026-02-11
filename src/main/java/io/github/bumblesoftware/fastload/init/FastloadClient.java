@@ -14,7 +14,6 @@ import java.util.List;
 
 import static io.github.bumblesoftware.fastload.api.abstraction.core.handler.AbstractionFactory.create;
 import static io.github.bumblesoftware.fastload.api.abstraction.core.handler.AbstractionHandler.Environment.CLIENT;
-import static io.github.bumblesoftware.fastload.api.abstraction.core.versioning.VersionConstants.IS_MINECRAFT_1182;
 import static io.github.bumblesoftware.fastload.config.DefaultConfig.*;
 import static io.github.bumblesoftware.fastload.config.FLMath.*;
 import static io.github.bumblesoftware.fastload.init.Fastload.LOGGER;
@@ -27,15 +26,13 @@ public class FastloadClient implements ClientModInitializer {
         VersionConstants.init();
         MINECRAFT_ABSTRACTION_HANDLER = create(
                 NAMESPACE,
-                List.of("fastload-119-0-1-2-compat", "fastload-1193-compat", "fastload-1194-compat"),
+                List.of(),
                 CLIENT,
                 event -> event.registerStatic(0,
                         (eventContext, eventStatus,  event1, eventArgs) -> {
-                            if (IS_MINECRAFT_1182) {
-                                FLMath.ifDebugEnabled(() ->
-                                        LOGGER.info("Fastload 1.18.2 Base!"));
-                                eventContext.setHeldObj(new Client1182());
-                            }
+                            FLMath.ifDebugEnabled(() ->
+                                    LOGGER.info("Fastload 1.21.11 implementation selected"));
+                            eventContext.setHeldObj(new Client1182());
                         }
                 ),
                 versionUtilAbstractEvent -> {}

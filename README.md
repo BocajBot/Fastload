@@ -1,6 +1,9 @@
 # Short explanation
 Fastload is a *relatively* simple mod that changes some crucial parts of world loading to speed it up.
 
+## Fork Status
+This fork is retargeted to **Minecraft 1.21.11** on **Fabric**.
+
 # Environments
 - Client (Optional)
 - Server (Optional)

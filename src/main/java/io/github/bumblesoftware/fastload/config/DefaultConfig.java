@@ -19,9 +19,9 @@ public interface DefaultConfig {
     Bound CHUNK_TRY_LIMIT_BOUND = new Bound(2500, 1);
 
     boolean DEF_DEBUG_VALUE = false;
-    boolean DEF_INSTANT_LOAD_VALUE = false;
-    int DEF_SERVER_RENDER_RADIUS_VALUE = 3;
-    int DEF_RENDER_RADIUS_VALUE = 10;
+    boolean DEF_INSTANT_LOAD_VALUE = true;
+    int DEF_SERVER_RENDER_RADIUS_VALUE = 0;
+    int DEF_RENDER_RADIUS_VALUE = 0;
     int DEF_TRY_LIMIT_VALUE = 250;
 
 

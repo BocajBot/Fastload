@@ -3,8 +3,6 @@ package io.github.bumblesoftware.fastload.mixin.mixins.mc1182.client;
 import io.github.bumblesoftware.fastload.client.FLClientEvents.Contexts.SetScreenEventContext;
 import io.github.bumblesoftware.fastload.common.FLCommonEvents.Contexts.ServerContext;
 import io.github.bumblesoftware.fastload.util.obj_holders.MutableObjectHolder;
-import me.fallenbreath.conditionalmixin.api.annotation.Condition;
-import me.fallenbreath.conditionalmixin.api.annotation.Restriction;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.server.integrated.IntegratedServer;
@@ -24,29 +22,25 @@ import static io.github.bumblesoftware.fastload.common.FLCommonEvents.Events.BOO
 import static io.github.bumblesoftware.fastload.common.FLCommonEvents.Events.SERVER_EVENT;
 import static io.github.bumblesoftware.fastload.common.FLCommonEvents.Locations.SERVER_PSR_LOADING_REDIRECT;
 
-@Restriction(require = @Condition(value = "minecraft", versionPredicates = "1.18.2"))
 @Mixin(MinecraftClient.class)
 public abstract class MinecraftClientMixin {
 
     @Shadow public abstract void setScreen(@Nullable Screen screen);
 
-    @Shadow protected abstract void reset(Screen screen);
-
-    @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true, require = 0)
     private void setScreenEvent(final Screen screen, final CallbackInfo ci) {
         if (SET_SCREEN_EVENT.isNotEmpty())
             SET_SCREEN_EVENT.execute(new SetScreenEventContext(screen, ci));
     }
 
-    @Inject(method = "render", at = @At("HEAD"))
+    @Inject(method = "render", at = @At("HEAD"), require = 0)
     private void renderEvent(boolean tick, CallbackInfo ci) {
         if (BOOLEAN_EVENT.isNotEmpty(RENDER_TICK))
             BOOLEAN_EVENT.execute(List.of(RENDER_TICK), new MutableObjectHolder<>(tick));
     }
 
-    @Redirect(method = "startIntegratedServer(Ljava/lang/String;Ljava/util/function/Function;Ljava/util/function/Function;" +
-            "ZLnet/minecraft/client/MinecraftClient$WorldLoadAction;)V", at = @At(value = "INVOKE", target = "Lnet" +
-            "/minecraft/client/MinecraftClient;setScreen(Lnet/minecraft/client/gui/screen/Screen;)V", ordinal = 2))
+    @Redirect(method = "startIntegratedServer(Lnet/minecraft/world/level/storage/LevelStorage$Session;Lnet/minecraft/resource/ResourcePackManager;Lnet/minecraft/server/SaveLoader;Z)V", at = @At(value = "INVOKE", target = "Lnet" +
+            "/minecraft/client/MinecraftClient;setScreen(Lnet/minecraft/client/gui/screen/Screen;)V", ordinal = 0), require = 0)
     private void handle441Loading(MinecraftClient client, @Nullable Screen screen) {
         if (SET_SCREEN_EVENT.isNotEmpty(LLS_441_REDIRECT))
             SET_SCREEN_EVENT.execute(
@@ -56,8 +50,7 @@ public abstract class MinecraftClientMixin {
         else this.setScreen(screen);
     }
 
-    @Redirect(method = "startIntegratedServer(Ljava/lang/String;Ljava/util/function/Function;Ljava/util/function/Function;" +
-            "ZLnet/minecraft/client/MinecraftClient$WorldLoadAction;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/integrated/IntegratedServer;isLoading()Z"))
+    @Redirect(method = "startIntegratedServer(Lnet/minecraft/world/level/storage/LevelStorage$Session;Lnet/minecraft/resource/ResourcePackManager;Lnet/minecraft/server/SaveLoader;Z)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/integrated/IntegratedServer;isLoading()Z"), require = 0)
     private boolean handleServerWait(IntegratedServer integratedServer) {
         final var returnValue = new MutableObjectHolder<>(integratedServer.isLoading());
         if (SERVER_EVENT.isNotEmpty(SERVER_PSR_LOADING_REDIRECT))
@@ -68,13 +61,13 @@ public abstract class MinecraftClientMixin {
         return returnValue.getHeldObj();
     }
 
-    @Redirect(method = "joinWorld", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/MinecraftClient;reset(Lnet/minecraft/client/gui/screen/Screen;)V"))
+    @Redirect(method = "joinWorld", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/MinecraftClient;setScreen(Lnet/minecraft/client/gui/screen/Screen;)V"), require = 0)
     private void handleProgressScreen(MinecraftClient client, Screen screen) {
         if (SET_SCREEN_EVENT.isNotEmpty(PROGRESS_SCREEN_JOIN_WORLD_REDIRECT))
             SET_SCREEN_EVENT.execute(
                     List.of(PROGRESS_SCREEN_JOIN_WORLD_REDIRECT),
                     new SetScreenEventContext(screen, null)
             );
-        else this.reset(screen);
+        else this.setScreen(screen);
     }
 }

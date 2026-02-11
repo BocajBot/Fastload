@@ -2,21 +2,17 @@
   "required": true,
   "minVersion": "0.8",
   "package": "io.github.bumblesoftware.fastload.mixin.mixins",
-  "plugin": "io.github.bumblesoftware.fastload.mixin.plugin.FLConditionalMixinConfig",
-  "compatibilityLevel": "JAVA_17",
+  "compatibilityLevel": "JAVA_21",
   "mixins": [
     "mc1182.server.MinecraftServerMixin"
   ],
   "client": [
-    "mc1182.client.ClientAccess",
+    "mc1182.client.ClientCommonNetworkHandlerMixin",
     "mc1182.client.ClientPlayerEntityMixin",
     "mc1182.client.ClientPlayNetworkHandlerMixin",
-    "mc1182.client.DownloadingTerrainScreenMixin",
     "mc1182.client.FrustumMixin",
     "mc1182.client.GameRendererMixin",
-    "mc1182.client.MinecraftClientMixin",
-    "mc1182.client.OptionAccess",
-    "mc1182.client.ScreenAccess"
+    "mc1182.client.MinecraftClientMixin"
   ],
   "injectors": {
     "defaultRequire": 1

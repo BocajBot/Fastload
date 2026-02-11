@@ -8,12 +8,9 @@ import io.github.bumblesoftware.fastload.util.Action;
 import io.github.bumblesoftware.fastload.util.Bound;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.Element;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.option.GameOptions;
-import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.text.Text;
 
@@ -43,16 +40,7 @@ public interface AbstractClientCalls extends MethodAbstractionApi {
     Text newTranslatableText(final String content);
     @SuppressWarnings("unused")
     Text newLiteralText(final String content);
-    <T extends Element & Drawable> T addDrawableChild(final Screen screen, final T drawableElement);
     <T> FLConfigScreenButtons<T> newFLConfigScreenButtons();
-    ButtonWidget getNewButton(
-            final int x,
-            final int y,
-            final int width,
-            final int height,
-            final Text message,
-            final ButtonWidget.PressAction onPress
-    );
     <T> T newCyclingButton(
             final String namespace,
             final String identifier,
@@ -67,15 +55,14 @@ public interface AbstractClientCalls extends MethodAbstractionApi {
             final Bound minMaxValues,
             final int width
     );
-    void reset(final Screen screen);
     void setScreen(final Screen screen);
     void renderScreenBackgroundTexture(
             final Screen screen,
             final int offset,
-            final MatrixStack matrices
+            final DrawContext drawContext
     );
     void drawCenteredText(
-            final MatrixStack matrices,
+            final DrawContext drawContext,
             final TextRenderer textRenderer,
             final Text text,
             final int centerX,
@@ -83,7 +70,7 @@ public interface AbstractClientCalls extends MethodAbstractionApi {
             final int color
     );
     void drawCenteredText(
-            final MatrixStack matrices,
+            final DrawContext drawContext,
             final TextRenderer textRenderer,
             final String text,
             final int centerX,

@@ -35,12 +35,16 @@
     "fastload.mixins.json"
   ],
   "depends": {
-    "fabricloader": ">=0.14.10",
-    "minecraft": ">=1.18.2",
-    "java": ">=17"
+    "fabricloader": ">=0.18.4",
+    "fabric-api": "*",
+    "minecraft": ">=1.21.11",
+    "java": ">=21"
   },
   "breaks": {
     "forcecloseloadingscreen": "*",
     "ksyxis": "*"
+  },
+  "suggests": {
+    "modmenu": "*"
   }
 }

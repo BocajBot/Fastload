@@ -20,6 +20,8 @@ public class FLConfig {
     @SuppressWarnings("EmptyMethod")
     public static void init() {}
 
+    private static final String CONFIG_VERSION_KEY = "config_version";
+    private static final int CURRENT_CONFIG_VERSION = 2;
     private static final Properties properties;
     private static final Path path;
 
@@ -52,6 +54,8 @@ public class FLConfig {
             }
         }
 
+        migrateConfigIfNeeded();
+
         getRawChunkTryLimit();
         getRawDebug();
         getRawInstantLoad();
@@ -66,6 +70,27 @@ public class FLConfig {
                 "generating a new one!");
     }
 
+    private static int getConfigVersion() {
+        try {
+            return Integer.parseInt(properties.getProperty(CONFIG_VERSION_KEY, "1"));
+        } catch (NumberFormatException ignored) {
+            return 1;
+        }
+    }
+
+    private static void migrateConfigIfNeeded() {
+        if (getConfigVersion() >= CURRENT_CONFIG_VERSION) {
+            return;
+        }
+
+        // v2 migration: default to fastest startup behavior.
+        properties.setProperty(INSTANT_LOAD_KEY, Boolean.toString(DEF_INSTANT_LOAD_VALUE));
+        properties.setProperty(LOCAL_RENDER_RADIUS_KEY, Integer.toString(DEF_RENDER_RADIUS_VALUE));
+        properties.setProperty(SERVER_RENDER_RADIUS_KEY, Integer.toString(DEF_SERVER_RENDER_RADIUS_VALUE));
+        properties.setProperty(CONFIG_VERSION_KEY, Integer.toString(CURRENT_CONFIG_VERSION));
+        Fastload.LOGGER.info("Migrated Fastload config to v" + CURRENT_CONFIG_VERSION + " (fast startup defaults).");
+    }
+
     public static void writeToDisk() {
         try (OutputStream out = Files.newOutputStream(path, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
             properties.store(out,  Fastload.NAMESPACE +  " Configuration File");
@@ -74,6 +99,8 @@ public class FLConfig {
         }
         try (BufferedWriter comment = Files.newBufferedWriter(path, StandardOpenOption.APPEND, StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
             comment.write("\n# Definitions");
+            comment.write("\n# " + writable(CONFIG_VERSION_KEY) + " = internal migration marker.");
+            comment.write("\n#");
             comment.write("\n# " + writable(DEBUG_KEY) + " = debug (logWarn) all things happening in fastload to aid in " +
                     "diagnosing issues.");
             comment.write("\n# Enabled = true, Disabled = false");
@@ -85,15 +112,15 @@ public class FLConfig {
             comment.write("\n# " + writable(INSTANT_LOAD_KEY) + " = should fastload just nuke the downloading terrain" +
                     " screen? This boolean is for impatient people who think fastload's loading screen isn't " +
                     "necessary.");
-            comment.write("\n# Enabled = true, Disabled = false");
+            comment.write("\n# Enabled = true, Disabled = false (default = true)");
             comment.write("\n#");
             comment.write("\n# " + writable(LOCAL_RENDER_RADIUS_KEY) + " = how many chunks are loaded until 'building terrain' is " +
                     "completed on singleplayer join.");
-            comment.write("\n# Min = 0, Max = 32 or your render distance, Whichever is smaller. Set 0 to disable.");
+            comment.write("\n# Min = 0, Max = 32 or your render distance, Whichever is smaller. Set 0 to disable (default = 0).");
             comment.write("\n#");
             comment.write("\n# " + writable(SERVER_RENDER_RADIUS_KEY) + " = how many chunks are loaded until 'building terrain' is " +
                     "completed on server join.");
-            comment.write("\n# Min = 0, Max = 32 or your render distance, Whichever is smaller. Set 0 to disable.");
+            comment.write("\n# Min = 0, Max = 32 or your render distance, Whichever is smaller. Set 0 to disable (default = 0).");
             comment.write("\n#");
 
         } catch (IOException e) {
