@@ -24,9 +24,11 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-
-      - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@v3
+          cache: gradle
+          cache-dependency-path: |
+            **/*.gradle*
+            **/gradle-wrapper.properties
+            gradle.properties
 
       - name: Build
         run: ./gradlew build --stacktrace
